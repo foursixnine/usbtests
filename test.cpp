@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <fstream>      // std::ofstream
 #include "libusb-1.0/libusb.h"
+#include <mutex>
+
+/** Need to look a little bit more closer to:
+ *
+ * https://github.com/clarkli86/hidapi/blob/master/libusb/hid.c
+ *
+ * */
 
 #undef max
 
@@ -14,21 +21,25 @@ union int_thing {
         int32_t number;
 };
 
+
+
         std::ofstream ofs;
         int *completed;
 
+std::mutex mtx;
 
 void error(string s, int err) {
-        cout << s << " Error: " << libusb_error_name(err)  << endl;
-
+        cout << s << " Error: " << libusb_error_name(err)  << endl << flush;
+        exit(1);
 }
 
 void callback(struct libusb_transfer *utp)
 {
         int res;
 
-        cout << "Completed" << endl;
 
+        mtx.lock();
+        cout << "Starting Callback" << endl << flush;
         switch (utp->status)
         {
                 case LIBUSB_TRANSFER_COMPLETED: case LIBUSB_TRANSFER_TIMED_OUT:
@@ -39,11 +50,14 @@ void callback(struct libusb_transfer *utp)
                 default:
 
                 ofs << utp->buffer;
+
                 res = libusb_submit_transfer(utp);
                 if(res != 0)
                         error("Problem submitting data", res);
 
         }
+        cout << "Completed callback" << endl << flush;
+        mtx.unlock();
 
 
 }
@@ -58,8 +72,6 @@ int main() {
         libusb_device_handle*   dev;
         struct libusb_transfer  *utp;
         int completed;
-
-
 
         // Initialize libusb with default context
 
@@ -93,9 +105,6 @@ int main() {
 
         union int_thing number;
 
-        //~ while (true)
-        //~ {
-
 
                 /*
 
@@ -113,7 +122,6 @@ int main() {
 
                 command[0]='3';
 
-                // Here, we're doing an OUT transfer, TO the PSoC
                 err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 5);
 
                 if ( err )
@@ -131,7 +139,7 @@ int main() {
 
                 for (int i=0; i < 3; i++){
 
-                        cout << "Transfer Submitted" << endl;
+                        cout << "Transfer Submitted" << endl << flush;
 
                         transfer[i] = libusb_alloc_transfer(0);
                         libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 512, callback, NULL, 5);
@@ -140,17 +148,21 @@ int main() {
                 }
 
                    while(true){
+
+                          cout << "." << flush;
+
                           err = libusb_handle_events_completed(NULL,&completed);
+                           if (err < 0){ // negative values are errors
+                                   cout << "Bye bye" << endl;
+                                break;
+                                }
+
+                          cout << "*" << flush;
                         }
-//~
-                cout << "Data: Completed" << endl;
 
+                cout << "Data: Completed" << endl << flush;
                 ofs.close();
-
-
-
-        //~ }
-
-                          exit(0);
+                libusb_close(dev);
+                exit(0);
 
 }

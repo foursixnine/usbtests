@@ -1,2 +1,14 @@
+CXX = g++
+CXXFLAGS = -std=c++11
+
+SOURCES=test.cpp
+OBJECTS=$(SOURCES:.cpp=.o)
+
+
+
 all:
-	g++ -o test test.cpp -I/usr/local/include -L/usr/local/lib -lusb-1.0
+	$(CXX)  $(CXXFLAGS) test.cpp -o test -I/usr/local/include -L/usr/local/lib -lusb-1.0
+
+clean:
+	rm -rf *o $(EXECUTABLE)
+
