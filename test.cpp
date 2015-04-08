@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <fstream>      // std::ofstream
 #include "libusb-1.0/libusb.h"
-#include <mutex>
+#include <thread>
 
 /** Need to look a little bit more closer to:
  *
@@ -26,7 +26,6 @@ union int_thing {
         std::ofstream ofs;
         int *completed;
 
-std::mutex mtx;
 
 void error(string s, int err) {
         cout << s << " Error: " << libusb_error_name(err)  << endl << flush;
@@ -37,30 +36,55 @@ void callback(struct libusb_transfer *utp)
 {
         int res;
 
-
-        mtx.lock();
+        ofs << utp->buffer << flush;
         cout << "Starting Callback" << endl << flush;
+
+
+
         switch (utp->status)
         {
                 case LIBUSB_TRANSFER_COMPLETED: case LIBUSB_TRANSFER_TIMED_OUT:
-                        *completed=1;
+                        cout << __LINE__ << endl << flush;
+                        if (utp->actual_length == 0){
+                                res = libusb_submit_transfer(utp);
+                        }
                         break;
                 case LIBUSB_TRANSFER_CANCELLED:  case LIBUSB_TRANSFER_NO_DEVICE: case LIBUSB_TRANSFER_ERROR:
-                     error("Problem submitting data", res);
+                      cout << __LINE__ << endl << flush;
+                      error("Problem submitting data", res);
                 default:
-
-                ofs << utp->buffer;
-
-                res = libusb_submit_transfer(utp);
-                if(res != 0)
-                        error("Problem submitting data", res);
-
+                        goto resend_urb;
         }
         cout << "Completed callback" << endl << flush;
-        mtx.unlock();
 
+resend_urb:
+res = libusb_submit_transfer(utp);
+cout << '+' << flush;
+if(res != 0)
+        error("Problem submitting data", res);
 
 }
+
+
+
+void waitForEvents(){
+
+           int err;
+           while(true){
+
+                  cout << "." << flush;
+
+                  err = libusb_handle_events_completed(NULL,completed);
+                   if (err < 0){ // negative values are errors
+                           cout << "Bye bye" << endl << flush;
+                        break;
+                        }
+
+                  cout << "*" << flush;
+                }
+
+        }
+
 
 int main() {
 
@@ -68,10 +92,12 @@ int main() {
         int err;
         unsigned char *buffer;
         unsigned char command[1];
+        union int_thing number;
+        std::thread eventHandler;
         // Device Handle
         libusb_device_handle*   dev;
         struct libusb_transfer  *utp;
-        int completed;
+
 
         // Initialize libusb with default context
 
@@ -103,7 +129,7 @@ int main() {
         if( err )
                 error("Cannot set alternate setting!", err);
 
-        union int_thing number;
+
 
 
                 /*
@@ -120,7 +146,7 @@ int main() {
                                                                         )
                 */
 
-                command[0]='3';
+                command[0]='1';
 
                 err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 5);
 
@@ -137,28 +163,19 @@ int main() {
                 cout << "Gonna transmit" << endl;
                 buffer = (unsigned char *) malloc(16777216);
 
-                for (int i=0; i < 3; i++){
+                for (int i=0; i < 4; i++){
 
                         cout << "Transfer Submitted" << endl << flush;
 
                         transfer[i] = libusb_alloc_transfer(0);
-                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 512, callback, NULL, 5);
+                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 4096, callback, NULL, 5);
                         libusb_submit_transfer(transfer[i]);
 
                 }
 
-                   while(true){
+                eventHandler = thread(waitForEvents);
 
-                          cout << "." << flush;
-
-                          err = libusb_handle_events_completed(NULL,&completed);
-                           if (err < 0){ // negative values are errors
-                                   cout << "Bye bye" << endl;
-                                break;
-                                }
-
-                          cout << "*" << flush;
-                        }
+                eventHandler.join();
 
                 cout << "Data: Completed" << endl << flush;
                 ofs.close();
@@ -166,3 +183,4 @@ int main() {
                 exit(0);
 
 }
+
