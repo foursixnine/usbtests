@@ -173,12 +173,12 @@ int main() {
                 cout << "Microseconds: " << 1 << ":" << endl << flush;;
 
 
-                for (int i=0; i < 64; i++){
+                for (int i=0; i < 32; i++){
 
                         //~ cout << "Transfer Submitted" << endl << flush;
 
                         transfer[i] = libusb_alloc_transfer(0);
-                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 4096, callback, NULL, 100);
+                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 4096, callback, NULL, 50);
                         libusb_submit_transfer(transfer[i]);
 
                 }
