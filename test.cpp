@@ -5,6 +5,7 @@
 #include <fstream>      // std::ofstream
 #include "libusb-1.0/libusb.h"
 #include <thread>
+#include <chrono>
 
 /** Need to look a little bit more closer to:
  *
@@ -22,44 +23,53 @@ union int_thing {
 };
 
 
-
         std::ofstream ofs;
         int *completed;
+        auto start_time = std::chrono::high_resolution_clock::now();
+        auto end_time = std::chrono::high_resolution_clock::now();
 
 
 void error(string s, int err) {
         cout << s << " Error: " << libusb_error_name(err)  << endl << flush;
-        exit(1);
+        //exit(1);
 }
 
 void callback(struct libusb_transfer *utp)
 {
         int res;
 
-        ofs << utp->buffer << flush;
-        cout << "Starting Callback" << endl << flush;
+        //~ cout << "Starting Callback" << endl << flush;
 
-
+        if (utp->actual_length == 0){
+                end_time = std::chrono::high_resolution_clock::now();
+                cout << "Seconds: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << ":" << endl;
+                cout << "Miliseconds: " << chrono::duration_cast<chrono::milliseconds>(end_time - start_time).count() << ":" << endl << flush;;
+                *completed = 1;
+        } else {
+                //~ ofs << utp->buffer << flush;
+                }
 
         switch (utp->status)
         {
-                case LIBUSB_TRANSFER_COMPLETED: case LIBUSB_TRANSFER_TIMED_OUT:
-                        cout << __LINE__ << endl << flush;
-                        if (utp->actual_length == 0){
-                                res = libusb_submit_transfer(utp);
-                        }
+                case LIBUSB_TRANSFER_COMPLETED:
+                        //~ cout << "LIBUSB_TRANSFER_COMPLETED" << endl << flush;
+                        break;
+                case LIBUSB_TRANSFER_TIMED_OUT:
+                        //~ cout << "LIBUSB_TRANSFER_TIMED_OUT" << endl << flush;
                         break;
                 case LIBUSB_TRANSFER_CANCELLED:  case LIBUSB_TRANSFER_NO_DEVICE: case LIBUSB_TRANSFER_ERROR:
                       cout << __LINE__ << endl << flush;
                       error("Problem submitting data", res);
                 default:
+                        cout << "Resubmitting urb" << endl << flush;
                         goto resend_urb;
         }
-        cout << "Completed callback" << endl << flush;
+
+        //~ cout << "Completed callback" << endl << flush;
 
 resend_urb:
 res = libusb_submit_transfer(utp);
-cout << '+' << flush;
+//~ cout << " Error: " << libusb_error_name(utp->status)  << endl << flush;
 if(res != 0)
         error("Problem submitting data", res);
 
@@ -72,15 +82,12 @@ void waitForEvents(){
            int err;
            while(true){
 
-                  cout << "." << flush;
 
                   err = libusb_handle_events_completed(NULL,completed);
                    if (err < 0){ // negative values are errors
                            cout << "Bye bye" << endl << flush;
                         break;
                         }
-
-                  cout << "*" << flush;
                 }
 
         }
@@ -104,7 +111,7 @@ int main() {
         libusb_init(NULL);
 
         // Open Device VID = 0x1111, PID = 0x1111 with the default libusb context
-        dev = libusb_open_device_with_vid_pid( NULL, 0x28cd, 0x41c0 );
+        dev = libusb_open_device_with_vid_pid( NULL, 0x28cd, 0x41c2 );
 
         // If device is null, we didn't find it.
         if (dev == NULL) {
@@ -146,9 +153,9 @@ int main() {
                                                                         )
                 */
 
-                command[0]='1';
+                command[0]=0x0c;
 
-                err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 5);
+                err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
 
                 if ( err )
                         error( "Bulk OUT Transfer Failed!", err);
@@ -162,13 +169,16 @@ int main() {
 
                 cout << "Gonna transmit" << endl;
                 buffer = (unsigned char *) malloc(16777216);
+                start_time = std::chrono::high_resolution_clock::now();
+                cout << "Microseconds: " << 1 << ":" << endl << flush;;
 
-                for (int i=0; i < 4; i++){
 
-                        cout << "Transfer Submitted" << endl << flush;
+                for (int i=0; i < 64; i++){
+
+                        //~ cout << "Transfer Submitted" << endl << flush;
 
                         transfer[i] = libusb_alloc_transfer(0);
-                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 4096, callback, NULL, 5);
+                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 4096, callback, NULL, 100);
                         libusb_submit_transfer(transfer[i]);
 
                 }
