@@ -14,6 +14,8 @@
  * */
 
 #undef max
+#define MAX_TRANSFERS 16
+#define MAX_PACKETS_PER_TRANSFER 8
 
 using namespace std;
 
@@ -37,16 +39,17 @@ void error(string s, int err) {
 void callback(struct libusb_transfer *utp)
 {
         int res;
-
+        int *p;
+        p = (int *) utp->user_data;
         //~ cout << "Starting Callback" << endl << flush;
 
         if (utp->actual_length == 0){
                 end_time = std::chrono::high_resolution_clock::now();
                 cout << "Seconds: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << ":" << endl;
                 cout << "Miliseconds: " << chrono::duration_cast<chrono::milliseconds>(end_time - start_time).count() << ":" << endl << flush;;
-                *completed = 1;
+		*p = 1;
         } else {
-                //~ ofs << utp->buffer << flush;
+                ofs << utp->buffer << flush;
                 }
 
         switch (utp->status)
@@ -79,8 +82,8 @@ if(res != 0)
 
 void waitForEvents(){
 
-           int err;
-           while(true){
+         int err;
+           do {
 
 
                   err = libusb_handle_events_completed(NULL,completed);
@@ -88,7 +91,7 @@ void waitForEvents(){
                            cout << "Bye bye" << endl << flush;
                         break;
                         }
-                }
+                } while(!completed);
 
         }
 
@@ -165,20 +168,22 @@ int main() {
 
                   ofs.open ("test.txt", std::ofstream::out | std::ofstream::app);
 
-                libusb_transfer * transfer[3];
 
                 cout << "Gonna transmit" << endl;
                 buffer = (unsigned char *) malloc(16777216);
                 start_time = std::chrono::high_resolution_clock::now();
                 cout << "Microseconds: " << 1 << ":" << endl << flush;;
 
+		int bufferSize;
+                bufferSize = MAX_PACKETS_PER_TRANSFER * 512;
+                libusb_transfer * transfer[MAX_TRANSFERS];
 
-                for (int i=0; i < 32; i++){
+                for (int i=0; i < MAX_TRANSFERS; i++){
 
                         //~ cout << "Transfer Submitted" << endl << flush;
 
                         transfer[i] = libusb_alloc_transfer(0);
-                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, buffer, 4096, callback, NULL, 50);
+                        libusb_fill_bulk_transfer(transfer[i], dev, 0x81, (unsigned char *) malloc(bufferSize), bufferSize, callback, &completed, 50);
                         libusb_submit_transfer(transfer[i]);
 
                 }
