@@ -15,7 +15,7 @@
  * */
 
 #undef max
-#define MAX_TRANSFERS 256
+#define MAX_TRANSFERS MAX_URB
 #define MAX_PACKETS_PER_TRANSFER 8
 
 using namespace std;
@@ -43,14 +43,21 @@ const unsigned char commandList[] = {
     0x0B,
     0x0C,
     0x0D,
-    //~ 0x0E,
-    //~ 0x0F,
-    //~ 0x11,
-    //~ 0x12,
-    //~ 0x13,
-    //~ 0x14,
-    //~ 0x15,
-    };
+    0x0E,
+    0x0F,
+    0x10,
+    0x11,
+    0x12,
+    0x13,
+    0x14,
+    0x15,
+    0x16,
+    0x17,
+    0x18,
+    0x19,
+    0x1A,
+    0x1B
+};
 
         int dataBufferSize = 1024*1024*32;
         unsigned char *dataBuffer = (unsigned char *) malloc(dataBufferSize);
@@ -122,6 +129,7 @@ if(res != 0)
 void waitForEvents( int command ){
 
          int err;
+         double transferRate;
 
            completed=0;
 
@@ -141,8 +149,8 @@ void waitForEvents( int command ){
             cerr << "Event Handling finished" << endl;
             completed=0;
 
-            double transferRate = totalLength/chrono::duration_cast<chrono::milliseconds>(end_time - start_time).count();
-            cout << ";" << chrono::duration_cast<chrono::milliseconds>(end_time - start_time).count();
+            transferRate = totalLength/chrono::duration_cast<chrono::milliseconds>(end_time - start_time).count();
+            cout << chrono::duration_cast<chrono::milliseconds>(end_time - start_time).count() << ";" ;
 
         }
 
@@ -161,7 +169,7 @@ int main() {
 
 
             std::chrono::milliseconds timespan(1000); // or whatever
-            cout << "command;transaction time;event handling time;full time;data size" << endl << flush;
+            cout << "command;Total Transfers;transaction time;event handling time;full time;data size" << endl << flush;
             for (int cmdIdx = 0; cmdIdx < sizeof(commandList); cmdIdx++)
             {
 
@@ -219,25 +227,25 @@ int main() {
             command[0]=0x65;
 
 
-
-                std::this_thread::sleep_for(timespan);
-
-                currentCommand= (unsigned char *) 0x65;
-                command[0]=0x65;
-                err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
-
-                if ( err )
-                        error( "Fallo 0x65", err);
-
-
-                currentCommand= (unsigned char *) 0x63;
-                command[0]=0x63;
-                err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
-
-                if ( err )
-                        error( "Fallo 0x63!", err);
-
-                std::this_thread::sleep_for(timespan);
+//~
+                //~ std::this_thread::sleep_for(timespan);
+//~
+                //~ currentCommand= (unsigned char *) 0x65;
+                //~ command[0]=0x65;
+                //~ err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
+//~
+                //~ if ( err )
+                        //~ error( "Fallo 0x65", err);
+//~
+//~
+                //~ currentCommand= (unsigned char *) 0x63;
+                //~ command[0]=0x63;
+                //~ err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
+//~
+                //~ if ( err )
+                        //~ error( "Fallo 0x63!", err);
+//~
+                //~ std::this_thread::sleep_for(timespan);
 
                 cerr << "Starting the true execution" << endl << flush;;
 
@@ -255,7 +263,8 @@ int main() {
 
 
                 currentCommand = (unsigned char *) &commandList[cmdIdx];
-                cout << (int) commandList[cmdIdx];
+                cout << (int) commandList[cmdIdx] << ";";
+                cout << MAX_TRANSFERS << ";";
                 auto timeBeforeTransaction = std::chrono::high_resolution_clock::now();
 
                 err = libusb_bulk_transfer(dev,  0x01, currentCommand, 1, &transfer_size, 100);
@@ -279,30 +288,30 @@ int main() {
 
                 auto timeAfterTransaction = std::chrono::high_resolution_clock::now();
 
-                cerr << "Finished execution sleeping" << endl << flush;;
+                cerr << "Finished execution sleeping" << endl << flush;
+//~
+                //~ std::this_thread::sleep_for(timespan);
+                //~ currentCommand= (unsigned char *) 0x65;
+                //~ command[0]=0x65;
+                //~ err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
+//~
+                //~ if ( err )
+                        //~ error( "Fallo 0x65", err);
+//~
+//~
+                //~ currentCommand= (unsigned char *) 0x63;
+                //~ command[0]=0x63;
+                //~ err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
+//~
+                //~ if ( err )
+                        //~ error( "Fallo 0x63!", err);
 
-                std::this_thread::sleep_for(timespan);
-                currentCommand= (unsigned char *) 0x65;
-                command[0]=0x65;
-                err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
-
-                if ( err )
-                        error( "Fallo 0x65", err);
-
-
-                currentCommand= (unsigned char *) 0x63;
-                command[0]=0x63;
-                err = libusb_bulk_transfer(dev,  0x01, command, 1, &transfer_size, 100);
-
-                if ( err )
-                        error( "Fallo 0x63!", err);
-
-                cerr << "Woke up" << endl << flush;;
+                cerr << "Woke up" << endl ;
 
                 libusb_close(dev);
 
                 auto timeAfterExecution = std::chrono::high_resolution_clock::now();
-                cout << MAX_TRANSFERS << ";"
+                     cout
                      << chrono::duration_cast<chrono::milliseconds>(timeAfterExecution - timeBeforeExecution).count() << ";"
                      << chrono::duration_cast<chrono::milliseconds>(timeAfterTransaction - timeBeforeTransaction).count() << ";"
                      << totalLength << ";"  << endl << flush;

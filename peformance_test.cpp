@@ -9,8 +9,8 @@
 
 
 #undef max
-#define MAX_TRANSFERS TRANSFERS
-#define MAX_PACKETS_PER_TRANSFER PACKETS
+#define MAX_TRANSFERS 256
+#define MAX_PACKETS_PER_TRANSFER 8
 
 using namespace std;
 
